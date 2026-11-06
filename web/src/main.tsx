@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { HashRouter, NavLink, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Activity, Boxes, DollarSign, FlaskConical, LayoutDashboard, MessageSquareText, Moon, Sun, RotateCcw } from "lucide-react";
 import clsx from "clsx";
@@ -98,9 +98,9 @@ const qc = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={qc}>
-      <BrowserRouter>
+      <HashRouter>
         <Shell />
-      </BrowserRouter>
+      </HashRouter>
     </QueryClientProvider>
   </React.StrictMode>,
 );
