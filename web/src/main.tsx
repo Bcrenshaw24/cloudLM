@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, NavLink, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Activity, Boxes, DollarSign, FlaskConical, LayoutDashboard, MessageSquareText, Moon, Sun, RotateCcw } from "lucide-react";
+import { Activity, Boxes, DollarSign, FlaskConical, LayoutDashboard, Laptop, MessageSquareText, Moon, Sun, RotateCcw } from "lucide-react";
 import clsx from "clsx";
 import "./index.css";
 import { api } from "./api/mock";
@@ -12,6 +12,7 @@ import Performance from "./pages/Performance";
 import Costs from "./pages/Costs";
 import Experiments from "./pages/Experiments";
 import Quality from "./pages/Quality";
+import Local from "./pages/Local";
 
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/costs", label: "Cost projection", icon: DollarSign },
   { to: "/experiments", label: "A/B experiments", icon: FlaskConical },
   { to: "/quality", label: "Quality & traces", icon: MessageSquareText },
+  { to: "/local", label: "Local", icon: Laptop },
 ];
 
 function ThemeToggle() {
@@ -85,6 +87,7 @@ function Shell() {
               <Route path="/experiments" element={<Experiments />} />
               <Route path="/experiments/:id" element={<Experiments />} />
               <Route path="/quality" element={<Quality />} />
+              <Route path="/local" element={<Local />} />
             </Routes>
           </div>
         </main>

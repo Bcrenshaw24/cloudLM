@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # The local engine (test/test.py, llama-server or vLLM). Matches the agent's
+  # default HOST:PORT of 127.0.0.1:3000, seen from inside the container.
+  - job_name: local-engine
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:3000"]
+        labels:
+          deployment: local

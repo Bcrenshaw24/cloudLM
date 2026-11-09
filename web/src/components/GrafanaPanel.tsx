@@ -3,8 +3,9 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { ExternalLink } from "lucide-react";
 import { rng } from "@/api/seed";
 
-const GRAFANA = import.meta.env.VITE_GRAFANA_URL ?? "/grafana";
-const DASH_UID = "cloudlm-vllm";
+export const GRAFANA = import.meta.env.VITE_GRAFANA_URL ?? "/grafana";
+
+interface PanelDef { id: number; title: string; unit: string; base: number; amp: number }
 
 // The vLLM perf dashboard the agent's metrics land in. Panel ids match the
 // provisioned dashboard; each has a mock generator for when Grafana is absent.
@@ -15,36 +16,69 @@ export const VLLM_PANELS = {
   kv: { id: 4, title: "KV cache usage", unit: "%", base: 62, amp: 0.2 },
   running: { id: 5, title: "Requests running", unit: "", base: 48, amp: 0.4 },
   waiting: { id: 6, title: "Requests waiting", unit: "", base: 3, amp: 1.2 },
-} as const;
+} as const satisfies Record<string, PanelDef>;
 export type PanelKey = keyof typeof VLLM_PANELS;
 
+// Local engine dashboard (deploy/grafana/dashboards/cloudlm-local.json). Queries
+// cover both llama.cpp and vLLM metric names, so either engine works.
+export const LOCAL_PANELS = {
+  genRate: { id: 1, title: "Generation throughput", unit: "tok/s", base: 0, amp: 0 },
+  promptRate: { id: 2, title: "Prompt throughput", unit: "tok/s", base: 0, amp: 0 },
+  msPerToken: { id: 3, title: "Avg time per output token", unit: "ms", base: 0, amp: 0 },
+  running: { id: 4, title: "Requests processing", unit: "", base: 0, amp: 0 },
+  waiting: { id: 5, title: "Requests deferred", unit: "", base: 0, amp: 0 },
+  genTotal: { id: 6, title: "Tokens generated (total)", unit: "", base: 0, amp: 0 },
+} as const satisfies Record<string, PanelDef>;
+export type LocalPanelKey = keyof typeof LOCAL_PANELS;
+
+const DASHBOARDS = {
+  vllm: { uid: "cloudlm-vllm", slug: "vllm", panels: VLLM_PANELS as Record<string, PanelDef> },
+  local: { uid: "cloudlm-local", slug: "local", panels: LOCAL_PANELS as Record<string, PanelDef> },
+};
+
 let grafanaUp: Promise<boolean> | null = null;
-const probeGrafana = () =>
+export const probeGrafana = () =>
   (grafanaUp ??= fetch(`${GRAFANA}/api/health`).then((r) => r.ok && (r.headers.get("content-type") ?? "").includes("json")).catch(() => false));
 
-export function GrafanaPanel({ panel, deployment = "All", range = "1h", height = 220, scale = 1 }: {
-  panel: PanelKey; deployment?: string; range?: string; height?: number; scale?: number;
-}) {
-  const p = VLLM_PANELS[panel];
+export function useGrafanaUp() {
   const [live, setLive] = useState<boolean | null>(null);
   useEffect(() => { probeGrafana().then(setLive); }, []);
+  return live;
+}
+
+type Props =
+  | { dashboard?: "vllm"; panel: PanelKey }
+  | { dashboard: "local"; panel: LocalPanelKey };
+
+export function GrafanaPanel({ dashboard = "vllm", panel, deployment = "All", range = "1h", height = 220, scale = 1, refresh = "30s" }: Props & {
+  deployment?: string; range?: string; height?: number; scale?: number; refresh?: string;
+}) {
+  const d = DASHBOARDS[dashboard];
+  const p = d.panels[panel];
+  const live = useGrafanaUp();
 
   const theme = document.documentElement.dataset.theme ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  const src = `${GRAFANA}/d-solo/${DASH_UID}/vllm?orgId=1&panelId=${p.id}&var-deployment=${encodeURIComponent(deployment)}&from=now-${range}&to=now&refresh=30s&theme=${theme}`;
+  const vars = dashboard === "vllm" ? `&var-deployment=${encodeURIComponent(deployment)}` : "";
+  const src = `${GRAFANA}/d-solo/${d.uid}/${d.slug}?orgId=1&panelId=${p.id}${vars}&from=now-${range}&to=now&refresh=${refresh}&theme=${theme}`;
 
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3">
         <div className="text-sm font-medium">{p.title}</div>
         <a className="flex items-center gap-1 text-xs text-ink-3 hover:text-accent" target="_blank" rel="noreferrer"
-          href={`${GRAFANA}/d/${DASH_UID}/vllm?var-deployment=${encodeURIComponent(deployment)}&from=now-${range}`}>
-          {live ? "Grafana" : "Grafana (mock)"} <ExternalLink size={12} />
+          href={`${GRAFANA}/d/${d.uid}/${d.slug}?orgId=1${vars}&from=now-${range}`}>
+          {live ? "Grafana" : dashboard === "local" ? "Grafana (offline)" : "Grafana (mock)"} <ExternalLink size={12} />
         </a>
       </div>
       {live ? (
         <iframe title={p.title} src={src} style={{ height }} className="w-full border-0" />
+      ) : dashboard === "local" ? (
+        // No fake data for the local box: say what's missing instead.
+        <div style={{ height }} className="grid place-items-center px-6 text-center text-sm text-ink-3">
+          {live === null ? "Checking Grafana…" : "Grafana isn't reachable at " + GRAFANA}
+        </div>
       ) : (
-        <MockSeries panel={panel} seedKey={deployment + panel + range} height={height} scale={scale} />
+        <MockSeries panel={panel as PanelKey} seedKey={deployment + panel + range} height={height} scale={scale} />
       )}
     </div>
   );
